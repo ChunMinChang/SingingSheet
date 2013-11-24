@@ -1,0 +1,211 @@
+<!doctype html>
+<html>
+	<head>
+    		<title>Pitch Detector</title>
+		<!-- Get the google fonts -->
+    		<link href='http://fonts.googleapis.com/css?family=Alike' rel='stylesheet' type='text/css'>
+		<!-- Get the CSS setting -->
+    		<link href='musicsheet.css' rel='stylesheet' type='text/css'>
+		
+
+		<script type="text/javascript">
+		
+			// Declare the global variables shared with multiple js files here
+			var canvas; //For drawing music sheet
+			var renderer;
+			var ctx;
+			var stave;
+			var BPM = 75;
+			var MIN_DURATION = 8;
+			var UNIT_NOTE = 4;
+			var TIMES = 4;
+			var KEY = 'C';
+
+		</script>
+
+		<!-- Get the javascript functions -->
+    		<script src="http://cwilso.github.io/AudioContext-MonkeyPatch/AudioContextMonkeyPatch.js"></script>
+    		<script src="js/pitchdetect.js"></script>
+
+		<!-- vexflow -->
+		<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+                <script type="text/javascript" src="vexflow/support/vexflow-min.js"></script>
+		
+		<script type="text/javascript">
+
+			//var canvas; //For drawing music sheet
+			//var renderer;
+			//var ctx;
+			//var stave;
+
+			function InitVexflow(){
+				canvas = $("canvas")[1];
+				renderer = new Vex.Flow.Renderer(canvas, Vex.Flow.Renderer.Backends.CANVAS);
+				ctx = renderer.getContext();
+				stave = new Vex.Flow.Stave(10,0,1000);
+				//stave.addClef("treble");
+			}
+
+			function SetTimeAndKey(x,y){
+				stave.addClef("treble");
+				stave.addTimeSignature(x+"/"+y);
+                                stave.addKeySignature(KEY);
+				//stave.setContext(ctx).draw();
+			}
+
+			function NotesGenerator(samples){
+
+				var notes = new Array;
+				for(var i = 0 ; i<samples.length ; i++){
+					var j=0;
+					var note = samples[i].split("")[j++];
+					if( isNaN(samples[i].split("")[j]) ){
+						var sign = samples[i].split("")[j++];
+					}
+					//var duration = (32/parseInt(samples[i].split("")[j])).toString();	
+					var duration = (samples[i].split("")[j]=="0")? "0":(MIN_DURATION/parseInt(samples[i].split("")[j])).toString();
+                                        if(samples[i].split("")[j]=="0"){
+						notes.push( new Vex.Flow.BarNote() );
+					}else{
+						if(note=="-"){
+							note = (i==0)? KEY : (notes[i-1].keys)? notes[i-1].keys[0].split("/")[0] : notes[i-2].keys[0].split("/")[0];//Bar notation has no property called keys
+                                                	duration += "r";
+                                        	}
+                                        	notes.push( (j==2)? new Vex.Flow.StaveNote({ keys: [note+"/4"], duration: duration }).addAccidental(0, new Vex.Flow.Accidental(sign)) : new Vex.Flow.StaveNote({ keys: [note+"/4"], duration: duration }) );
+					}
+				}
+				return notes;
+			}
+
+			$(document).ready(function() {
+				InitVexflow();
+				SetTimeAndKey(4,4);
+                                stave.setContext(ctx).draw();
+
+				//Debug
+				//var sampleNotes = ['-4' ,'-1' ,'G1' ,'-2' ,'-0' ,'-2' ,'D#1'];
+                                //AppendSheet(sampleNotes);
+
+			});
+
+			/*
+                        $(document).ready(function() {
+                                // demonstration from http://www.vexflow.com/docs/tutorial.html
+                                var canvas = $("canvas")[1];
+                                var renderer = new Vex.Flow.Renderer(canvas, Vex.Flow.Renderer.Backends.CANVAS);
+                                var ctx = renderer.getContext();
+
+                                var stave = new Vex.Flow.Stave(10, 0, 1000);
+                                
+				stave.addClef("treble");
+                                stave.addTimeSignature("4/4");
+                                stave.addKeySignature('C');
+                                stave.setContext(ctx).draw();
+
+				
+				// Create the notes
+                                var notes = [
+                                // A quarter-note C.
+                                new Vex.Flow.StaveNote({ keys: ["C/4"], duration: "1" }),
+                                // A quarter-note D.
+                                new Vex.Flow.StaveNote({ keys: ["D/4"], duration: "2" }).addAccidental(0, new Vex.Flow.Accidental("#")),
+                                // A quarter-note rest. Note that the key (b/4) specifies the vertical
+                                // position of the rest.
+                                new Vex.Flow.StaveNote({ keys: ["B/4"], duration: "4r" }),
+                                // A C-Major chord.
+                                new Vex.Flow.StaveNote({ keys: ["c/4", "e/4", "g/4"], duration: "8" }),
+				// A G-Major chorg.
+				new Vex.Flow.StaveNote({ keys: ["g/4", "b/4", "d/4"], duration: "16" }).addAccidental(1, new Vex.Flow.Accidental("b")).addAccidental(2, new Vex.Flow.Accidental("#")),
+				// A G-Major chorg.
+                                new Vex.Flow.StaveNote({ keys: ["g/4", "b/4", "d/4"], duration: "32" }),
+                                ];
+				
+
+                                // Create a voice in 4/4
+                                var voice = new Vex.Flow.Voice({
+                                        num_beats: 4,
+                                        beat_value: 4,
+                                        resolution: Vex.Flow.RESOLUTION
+                                });
+
+                 		// disable strict timing
+                                voice.setStrict(false);//Add this line to show multiple measures 
+
+                                // Add notes to voice
+                                voice.addTickables(notes);
+
+                                // Format and justify the notes to 500 pixels
+                                var formatter = new Vex.Flow.Formatter().joinVoices([voice]).format([voice], 400);
+
+                                // Render voice
+                                voice.draw(ctx, stave);
+			
+                        });
+			*/
+
+			function StopAndGet(){
+				closeLiveInput();
+				
+				var sampleNotes = getSamples();
+				AppendSheet(sampleNotes);
+			}
+
+			function AppendSheet(samples){
+
+				var notes = NotesGenerator(samples); 
+
+                                // Create a voice in 4/4
+                                var voice = new Vex.Flow.Voice({
+                                        num_beats: TIMES,
+                                        beat_value: UNIT_NOTE,
+                                        resolution: Vex.Flow.RESOLUTION
+                                });
+
+                                // disable strict timing
+                                voice.setStrict(false);//Add this line to show multiple measures
+
+                                // Add notes to voice
+                                voice.addTickables(notes);
+
+                                // Format and justify the notes to 500 pixels
+                                var formatter = new Vex.Flow.Formatter().joinVoices([voice]).format([voice], 400);
+
+                                // Render voice
+                                voice.draw(ctx, stave);
+			}
+
+                </script>
+  	</head>
+  	<body>
+    		<button id="openInput" onclick="openLiveInput()">Start live input</button>
+		<button id="closeInput" onclick="StopAndGet()" disabled>Stop live input</button>
+
+    		<div id="detector" class="vague">
+      			<canvas id="output">
+      			</canvas>
+      			<div class="pitch">
+        			<span id="pitch">--</span>Hz
+      			</div>
+      			<div class="note">
+        			<span id="note">--</span>
+      			</div>   
+      			<div id="detune">
+        			<span id="detune_amt">--</span>
+        			<span id="flat">cents &#9837;</span>
+        			<span id="sharp">cents &#9839;</span>
+      			</div>
+			<div id="totalTime">
+				<span id="totalTime">--</span>seconds
+			</div>
+    		</div>
+
+
+		<br/><br/>
+		<div id="sheet">
+			<b> Singing Sheet </b>
+                	<p>
+                        	<canvas id="sheetOutput" width="5000" height="500"></canvas>
+               	 	</p>
+		</div>
+	</body>
+</html>
